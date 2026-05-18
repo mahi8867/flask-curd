@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    tools {
+        jdk 'jdk17'
+    }
+
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
     }
@@ -16,45 +20,59 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                sh 'pip3 install --break-system-packages -r requirements.txt'
+                sh '''
+                pip3 install --break-system-packages -r requirements.txt
+                '''
             }
         }
 
         stage('Test') {
             steps {
-                sh 'pip3 install --break-system-packages pytest'
-                sh 'python3 -m pytest || true'
+                sh '''
+                pip3 install --break-system-packages pytest
+                python3 -m pytest || true
+                '''
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('sonarqube') {
-                    sh '''
-                    $SCANNER_HOME/bin/sonar-scanner \
-                    -Dsonar.projectKey=flask-curd \
-                    -Dsonar.projectName=flask-curd \
-                    -Dsonar.sources=.
-                    '''
+                    withCredentials([string(credentialsId: 'sonar-token-new', variable: 'SONAR_TOKEN')]) {
+
+                        sh '''
+                        $SCANNER_HOME/bin/sonar-scanner \
+                        -Dsonar.projectKey=flask-curd \
+                        -Dsonar.projectName=flask-curd \
+                        -Dsonar.sources=. \
+                        -Dsonar.host.url=http://13.218.197.61:9000 \
+                        -Dsonar.login=$SONAR_TOKEN
+                        '''
+                    }
                 }
             }
         }
 
         stage('Docker Build') {
             steps {
-                sh 'docker build -t flask-curd .'
+                sh '''
+                sudo docker build -t flask-curd .
+                '''
             }
         }
 
         stage('Docker Deploy') {
             steps {
                 sh '''
-                docker stop flask-curd-container || true
-                docker rm flask-curd-container || true
-                docker run -d --name flask-curd-container -p 5000:5000 flask-curd
+                sudo docker stop flask-container || true
+                sudo docker rm flask-container || true
+
+                sudo docker run -d \
+                --name flask-container \
+                -p 5000:5000 \
+                flask-curd
                 '''
             }
         }
     }
 }
-
