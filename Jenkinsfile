@@ -22,7 +22,7 @@ pipeline {
 
         stage('Test') {
             steps {
-                sh 'pip3 install pytest'
+                sh 'pip3 install --break-system-packages pytest'
                 sh 'python3 -m pytest || true'
             }
         }
@@ -34,8 +34,7 @@ pipeline {
                     $SCANNER_HOME/bin/sonar-scanner \
                     -Dsonar.projectKey=flask-curd \
                     -Dsonar.projectName=flask-curd \
-                    -Dsonar.sources=. \
-                    -Dsonar.host.url=http://13.218.197.61:9000
+                    -Dsonar.sources=.
                     '''
                 }
             }
@@ -50,11 +49,12 @@ pipeline {
         stage('Docker Deploy') {
             steps {
                 sh '''
-                docker stop flask-app || true
-                docker rm flask-app || true
-                docker run -d -p 5000:5000 --name flask-app flask-curd
+                docker stop flask-curd-container || true
+                docker rm flask-curd-container || true
+                docker run -d --name flask-curd-container -p 5000:5000 flask-curd
                 '''
             }
         }
     }
 }
+
