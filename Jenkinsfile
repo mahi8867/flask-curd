@@ -1,11 +1,21 @@
 pipeline {
     agent any
 
+    tools {
+        jdk 'jdk17'
+        nodejs 'node16'
+    }
+
+    environment {
+        SCANNER_HOME = tool 'sonar-scanner'
+    }
+
     stages {
 
         stage('Git Checkout') {
             steps {
-                git 'https://github.com/gurkanakdeniz/example-flask-crud.git'
+                git branch: 'master',
+                url: 'https://github.com/mahi8867/flask-curd.git'
             }
         }
 
@@ -17,24 +27,21 @@ pipeline {
 
         stage('Test') {
             steps {
+                sh 'pip3 install pytest'
                 sh 'python3 -m pytest || true'
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
-                script {
-                    def scannerHome = tool 'sonar-scanner'
-
-                    withSonarQubeEnv('sonarqube') {
-
-                        sh """
-                        ${scannerHome}/bin/sonar-scanner \
-                        -Dsonar.projectKey=flask-curd \
-                        -Dsonar.projectName=flask-curd \
-                        -Dsonar.sources=.
-                        """
-                    }
+                withSonarQubeEnv('sonarqube') {
+                    sh '''
+                    $SCANNER_HOME/bin/sonar-scanner \
+                    -Dsonar.projectKey=flask-curd \
+                    -Dsonar.projectName=flask-curd \
+                    -Dsonar.sources=. \
+                    -Dsonar.host.url=http://13.218.197.61:9000
+                    '''
                 }
             }
         }
@@ -47,10 +54,11 @@ pipeline {
 
         stage('Docker Deploy') {
             steps {
-                sh 'docker stop flask-app || true'
-                sh 'docker rm flask-app || true'
-
-                sh 'docker run -d -p 5000:5000 --name flask-app flask-curd'
+                sh '''
+                docker stop flask-app || true
+                docker rm flask-app || true
+                docker run -d -p 5000:5000 --name flask-app flask-curd
+                '''
             }
         }
     }
